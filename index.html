@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Plane Shooter v4 - Mobile Controls</title>
+  <title>Plane Shooter v4 Mobile</title>
   <style>
-    body { margin:0; overflow:hidden; background:black; touch-action: none; }
+    body { margin:0; overflow:hidden; background:black; touch-action:none; }
     canvas { display:block; margin:0 auto; background:#87CEEB; }
 
-    /* Mobile controls */
+    /* Joystick */
     #joystick {
       position: absolute;
       bottom: 100px;
@@ -15,18 +15,18 @@
       height: 100px;
       border-radius: 50%;
       background: rgba(0,0,0,0.3);
-      touch-action: none;
     }
     #joystickThumb {
       position: absolute;
       width: 50px;
       height: 50px;
-      background: rgba(255,255,255,0.7);
       border-radius: 50%;
+      background: rgba(255,255,255,0.7);
       top: 25px;
       left: 25px;
-      touch-action: none;
     }
+
+    /* Shoot buttons */
     .shootButton {
       position: absolute;
       width: 60px;
@@ -77,13 +77,18 @@ let score = 0;
 
 // ================= ENEMIES =================
 const enemies = [];
-
-// ================= SPAWN ENEMY =================
 function spawnEnemy() {
   let ex = Math.random()*(canvas.width-40);
   let ey = -40;
   enemies.push({ x:ex, y:ey, w:40, h:40, speed:2 });
 }
+
+// ================= DRAW =================
+function drawPlane() { ctx.fillStyle="green"; ctx.fillRect(plane.x,plane.y,plane.w,plane.h); }
+function drawEnemies() { ctx.fillStyle="red"; enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.w,e.h)); }
+function drawMissiles() { ctx.fillStyle="yellow"; missiles.forEach(m=>ctx.fillRect(m.x,m.y,m.w,m.h)); }
+function drawHUD() { ctx.fillStyle="white"; ctx.font="20px Arial"; ctx.fillText("Lives:"+plane.lives,20,30); ctx.fillText("Score:"+score,880,30); }
+function drawTitle() { ctx.fillStyle="#87CEEB"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle="black"; ctx.font="50px Arial"; ctx.fillText("PLANE SHOOTER",330,200); ctx.font="22px Arial"; ctx.fillText("Use joystick and buttons!", 360, 260); ctx.fillText("Tap screen to Start", 360, 300); }
 
 // ================= UPDATE =================
 function update() {
@@ -124,13 +129,7 @@ function update() {
   });
 }
 
-// ================= DRAW =================
-function drawPlane() { ctx.fillStyle="green"; ctx.fillRect(plane.x,plane.y,plane.w,plane.h); }
-function drawEnemies() { ctx.fillStyle="red"; enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.w,e.h)); }
-function drawMissiles() { ctx.fillStyle="yellow"; missiles.forEach(m=>ctx.fillRect(m.x,m.y,m.w,m.h)); }
-function drawHUD() { ctx.fillStyle="white"; ctx.font="20px Arial"; ctx.fillText("Lives:"+plane.lives,20,30); ctx.fillText("Score:"+score,880,30); }
-function drawTitle() { ctx.fillStyle="#87CEEB"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle="black"; ctx.font="50px Arial"; ctx.fillText("PLANE SHOOTER",330,200); ctx.font="22px Arial"; ctx.fillText("Use joystick and buttons!", 360, 260); ctx.fillText("Press ENTER to Start", 360, 300); }
-
+// ================= DRAW LOOP =================
 function draw() {
   if(gameState==="title"){ drawTitle(); return; }
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -142,35 +141,46 @@ function draw() {
 function loop(){ update(); draw(); requestAnimationFrame(loop); }
 
 // ================= INPUT =================
+function shoot(key){
+  const now = Date.now();
+  if(now - lastShot[key] < SHOT_DELAY) return;
+  if(key==="w") missiles.push({x:plane.x+15,y:plane.y,w:10,h:20,vx:0,vy:-7});
+  if(key==="s") missiles.push({x:plane.x+15,y:plane.y+40,w:10,h:20,vx:0,vy:7});
+  if(key==="a") missiles.push({x:plane.x,y:plane.y+15,w:20,h:10,vx:-7,vy:0});
+  if(key==="d") missiles.push({x:plane.x+40,y:plane.y+15,w:20,h:10,vx:7,vy:0});
+  lastShot[key]=now;
+}
+
+// Desktop keyboard
 document.addEventListener("keydown", e=>{
   keys[e.key]=true;
   if(gameState==="title" && e.key==="Enter") gameState="playing";
-
-  const now=Date.now();
-  if(gameState==="playing" && "wasd".includes(e.key) && now-lastShot[e.key]>=SHOT_DELAY){
-    if(e.key==="w") missiles.push({x:plane.x+15,y:plane.y,w:10,h:20,vx:0,vy:-7});
-    if(e.key==="s") missiles.push({x:plane.x+15,y:plane.y+40,w:10,h:20,vx:0,vy:7});
-    if(e.key==="a") missiles.push({x:plane.x,y:plane.y+15,w:20,h:10,vx:-7,vy:0});
-    if(e.key==="d") missiles.push({x:plane.x+40,y:plane.y+15,w:20,h:10,vx:7,vy:0});
-    lastShot[e.key]=now;
-  }
+  if(gameState==="playing" && "wasd".includes(e.key)) shoot(e.key);
 });
 document.addEventListener("keyup", e=> keys[e.key]=false);
 
-// ================= MOBILE CONTROLS =================
+// Mobile tap to start
+canvas.addEventListener("touchstart", e=>{
+  if(gameState==="title") gameState="playing";
+});
+
+// Mobile shoot buttons
+["W","A","S","D"].forEach(k=>{
+  const btn = document.getElementById("btn"+k);
+  btn.addEventListener("touchstart", e=>{ e.preventDefault(); shoot(k.toLowerCase()); });
+});
+
+// ================= JOYSTICK =================
 const joystick = document.getElementById("joystick");
 const thumb = document.getElementById("joystickThumb");
 let touchId = null;
 let joyX=0, joyY=0;
 
 joystick.addEventListener("touchstart", e=>{
-  const t = e.changedTouches[0]; touchId = t.identifier;
-  moveThumb(t.clientX, t.clientY);
+  const t = e.changedTouches[0]; touchId = t.identifier; moveThumb(t.clientX,t.clientY);
 });
 joystick.addEventListener("touchmove", e=>{
-  for(const t of e.changedTouches){
-    if(t.identifier===touchId) moveThumb(t.clientX,t.clientY);
-  }
+  for(const t of e.changedTouches){ if(t.identifier===touchId) moveThumb(t.clientX,t.clientY); }
 });
 joystick.addEventListener("touchend", e=>{
   for(const t of e.changedTouches){
@@ -189,30 +199,11 @@ function moveThumb(x,y){
   joyX = dx/40; joyY = dy/40;
 }
 
-// joystick movement updates keys
 function updateJoystickKeys(){
   keys.ArrowLeft = joyX < -0.3;
   keys.ArrowRight = joyX > 0.3;
   keys.ArrowUp = joyY < -0.3;
   keys.ArrowDown = joyY > 0.3;
-}
-
-// shoot buttons
-["W","A","S","D"].forEach(k=>{
-  const btn = document.getElementById("btn"+k);
-  btn.addEventListener("touchstart", e=>{
-    e.preventDefault();
-    shoot(k.toLowerCase());
-  });
-});
-function shoot(key){
-  const now = Date.now();
-  if(now - lastShot[key] < SHOT_DELAY) return;
-  if(key==="w") missiles.push({x:plane.x+15,y:plane.y,w:10,h:20,vx:0,vy:-7});
-  if(key==="s") missiles.push({x:plane.x+15,y:plane.y+40,w:10,h:20,vx:0,vy:7});
-  if(key==="a") missiles.push({x:plane.x,y:plane.y+15,w:20,h:10,vx:-7,vy:0});
-  if(key==="d") missiles.push({x:plane.x+40,y:plane.y+15,w:20,h:10,vx:7,vy:0});
-  lastShot[key]=now;
 }
 
 // ================= ENEMY SPAWN =================
